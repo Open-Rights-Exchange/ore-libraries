@@ -1,0 +1,45 @@
+{
+  "name": "@open-rights-exchange/server",
+  "version": "1.0.0",
+  "description": "Server library for ORE Protocol",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "babel . --ignore node_modules,dist,example/node_modules --out-dir dist && npm run copyfiles",
+    "copyfiles": "cp ./example/.env.example ./dist/example/",
+    "example:client": "node --trace-warnings ./dist/example/server/index.js",
+    "prepare": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Open-Rights-Exchange/ore-libraries.git"
+  },
+  "author": "Open Rights Exchange",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Open-Rights-Exchange/ore-libraries/issues"
+  },
+  "homepage": "https://github.com/Open-Rights-Exchange/ore-libraries#readme",
+  "dependencies": {
+    "@babel/polyfill": "^7.0.0",
+    "analytics-node": "^3.3.0",
+    "axios": "^0.16.2",
+    "base-64": "^0.1.0",
+    "dotenv": "^6.0.0",
+    "eosjs-ecc": "^4.0.1",
+    "hash.js": "^1.1.5",
+    "jsonwebtoken": "^8.3.0",
+    "newrelic": "^4.3.0",
+    "rollbar": "^2.4.2",
+    "sort-json": "^2.0.0",
+    "tslint": "^5.9.1",
+    "typescript": "^2.8.1",
+    "url-parse": "^1.2.0",
+    "url-polyfill": "^1.0.11"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.0.0",
+    "@babel/core": "^7.0.0",
+    "@babel/preset-env": "^7.0.0"
+  }
+}

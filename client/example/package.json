@@ -1,0 +1,14 @@
+{
+	"name": "open-rights-exchange-client-example",
+	"version": "1.0.0",
+	"description": "Example for ORE Protocol client library",
+	"main": "index.js",
+	"scripts": {
+		"start": "node index.js"
+	},
+	"author": "Open Rights Exchange",
+	"license": "MIT",
+	"dependencies": {
+		"@open-rights-exchange/client": "^1.0.0"
+	}
+}

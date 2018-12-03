@@ -177,46 +177,38 @@ class Client {
   async getOptions(endpoint, httpMethod, oreAccessToken, requestParameters) {
     let options;
     let url;
+    let urlParameters;
+    let bodyParameters;
     url = new URL(endpoint);
-
-    //TODO: Refactor this code so we don't repeat
 
     //If both url and body params are passed in, add params to query url and body
     if (requestParameters["http-url-params"] && requestParameters["http-body-params"]) {
-      Object.keys(requestParameters["http-url-params"]).forEach(key => {
-        url.searchParams.append(key, requestParameters["http-url-params"][key])
-      });
-      options = {
-        method: httpMethod,
-        body: JSON.stringify(requestParameters["http-body-params"]),
-        headers: {
-          'Content-Type': 'application/json',
-          'Ore-Access-Token': oreAccessToken
-        }
-      };
+      urlParameters = requestParameters["http-url-params"]
+      bodyParameters = requestParameters["http-body-params"]
     } else {
-      //handle passed-in params as body parameters
       if (httpMethod.toLowerCase() === "post") {
-        options = {
-          method: httpMethod,
-          body: JSON.stringify(requestParameters),
-          headers: {
-            'Content-Type': 'application/json',
-            'Ore-Access-Token': oreAccessToken
-          }
-        }
-      } else {
+        //handle passed-in params as body parameters
+        bodyParameters = requestParameters
+      }
+
+      if (httpMethod.toLowerCase() === "get") {
         //handle passed-in params as url query parameters
-        options = {
-          method: httpMethod,
-          headers: {
-            'Content-Type': 'application/json',
-            'Ore-Access-Token': oreAccessToken
-          }
-        }
-        Object.keys(requestParameters).forEach(key => url.searchParams.append(key, requestParameters[key]))
+        urlParameters = requestParameters
       }
     }
+
+    Object.keys(urlParameters).forEach(key => {
+      url.searchParams.append(key, urlParameters[key])
+    });
+
+    options = {
+      method: httpMethod,
+      body: JSON.stringify(bodyParameters),
+      headers: {
+        'Content-Type': 'application/json',
+        'Ore-Access-Token': oreAccessToken
+      }
+    };
 
     return {
       url,

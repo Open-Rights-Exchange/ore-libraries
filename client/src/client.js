@@ -345,9 +345,9 @@ class Client {
     if (apiCallPrice != "0.0000 CPU") {
       // Call cpuContract.approve(accountName, cpuAmount) to designate amount to allow payment in cpu for the api call (from priceInCPU in the apiVoucher’s right for the specific endpoint desired)
       const memo = `approve CPU transfer for $(this.config.verifierAccountName + uuidv1()}`;
-      log(`Fetch request: Requesting verifier to approve ${apiCallPrice} transfer for: ${this.config.verifierAccountName + uuidv1()}`);
+      log(`Fetch request: Approve ${apiCallPrice} transfer for: ${this.config.verifierAccountName + uuidv1()}`);
       await this.orejs.approveCpu(this.config.accountName, this.config.verifierAccountName, apiCallPrice, memo, VERIFIER_APPROVE_PERMISSION);
-      log("Fetch request: CPU approved by the verifier");
+      log("Fetch request: CPU approved for the verifier");
     }
 
     // Call the verifier to get a new access token or get the cached access token

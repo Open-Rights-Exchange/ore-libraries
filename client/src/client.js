@@ -156,6 +156,12 @@ class Client {
     }
   }
 
+  /* Creates the request object to call the rights Endpoint. 
+     This function creates the request object depending on the request type (get/post) and adds following to it:
+     Url parameters get added as query parameters with the url
+     body parameters as the body of the request object.
+     ore-access-token in the header
+  */
   async getOptions(endpoint, httpMethod, oreAccessToken, requestParameters) {
     let options;
     let url;
@@ -169,12 +175,12 @@ class Client {
       bodyParameters = requestParameters["http-body-params"]
     } else {
       if (httpMethod.toLowerCase() === "post") {
-        //handle passed-in params as body parameters
+        //handle request parameters as body parameters
         bodyParameters = requestParameters
       }
 
       if (httpMethod.toLowerCase() === "get") {
-        //handle passed-in params as url query parameters
+        //handle request parameters as url query parameters
         urlParameters = requestParameters
       }
     }
@@ -196,7 +202,6 @@ class Client {
       url,
       options
     };
-
   }
 
   async getInstrumentAndRight(rightName) {

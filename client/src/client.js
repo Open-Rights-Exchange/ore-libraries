@@ -269,7 +269,7 @@ class Client {
   }
 
   // Makes request to url (including ore-access-token in header) and returns results
-  async callRight(endpoint, httpMethod, requestParameters, oreAccessToken) {
+  async callRightEndpoint(endpoint, httpMethod, requestParameters, oreAccessToken) {
     try {
       const { url, options } = await this.getOptions(endpoint, httpMethod, oreAccessToken, requestParameters);
       const response = await fetch(url, options);
@@ -339,7 +339,7 @@ class Client {
     }
 
     // Call the right
-    const response = await this.callRight(endpoint, method, requestParams, oreAccessToken);
+    const response = await this.callRightEndpoint(endpoint, method, requestParams, oreAccessToken);
     return response;
   }
 }

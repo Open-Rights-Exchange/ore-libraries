@@ -130,10 +130,7 @@ class Client {
     }
 
     //return data
-    return {
-      oreHttpEndpoint,
-      oreChainId
-    };
+    return { oreHttpEndpoint, oreChainId };
 
   }
 
@@ -198,10 +195,7 @@ class Client {
       }
     };
 
-    return {
-      url,
-      options
-    };
+    return { url, options };
   }
 
   /* Gets the instrument for the input right from the ORE blockchain
@@ -219,10 +213,7 @@ class Client {
 
     const right = this.orejs.getRight(instrument, rightName);
 
-    return {
-      instrument,
-      right
-    };
+    return { instrument, right };
   }
 
   /* Call Verifier to get access token
@@ -268,10 +259,7 @@ class Client {
         cached = true;
       }
     }
-    return {
-      accessToken,
-      cached
-    };
+    return { accessToken, cached };
 
   }
 

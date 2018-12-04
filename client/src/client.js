@@ -4,9 +4,7 @@ const ecc = require('eosjs-ecc')
 const semver = require('semver');
 const NodeCache = require("node-cache");
 const hash = require('object-hash');
-const {
-  Orejs
-} = require('@open-rights-exchange/orejs')
+const { Orejs } = require('@open-rights-exchange/orejs')
 const uuidv1 = require('uuid/v1');
 const packageJson = require('../package'); //package.json
 
@@ -43,10 +41,7 @@ class Client {
     return new Promise((resolve, reject) => {
       (async () => {
         try {
-          const {
-            oreHttpEndpoint,
-            oreChainId
-          } = await this.getDetailsFromChain();
+          const { oreHttpEndpoint, oreChainId } = await this.getDetailsFromChain();
           //create instance of orejs
           this.orejs = new Orejs({
             httpEndpoint: oreHttpEndpoint,
@@ -66,13 +61,7 @@ class Client {
 
   // Validate and extend config data 
   validateConfig(configData) {
-    var {
-      accountName,
-      verifier,
-      verifierAccountName,
-      verifierAuthKey,
-      instrumentCategory
-    } = configData || {};
+    var { accountName, verifier, verifierAccountName, verifierAuthKey, instrumentCategory } = configData || {};
 
     if (!accountName || !verifier || !verifierAccountName || !verifierAuthKey) {
       throw new Error(`Problem with config: There is one or more missing required values.`);
@@ -96,10 +85,7 @@ class Client {
   /* confirm that verifierAuthKey is a valid private key
     ...and that it belongs to the account name in the config file  */
   async validateVerifierAuthKey() {
-    const {
-      accountName,
-      verifierAuthKey
-    } = this.config;
+    const { accountName } = this.config;
     var verifierAuthPubKey;
 
     try {
@@ -120,9 +106,7 @@ class Client {
     var errMsg = `ORE Blockchain: Problem retrieving ORE address from verifier discovery endpoint. Config expects a verifier running here: ${this.config.verifier}.`;
     try {
       const oreNetworkData = await fetch(`${this.config.verifier}/discovery`);
-      const {
-        oreNetworkUri
-      } = await oreNetworkData.json();
+      const { oreNetworkUri } = await oreNetworkData.json();
       oreHttpEndpoint = oreNetworkUri;
       if (!oreHttpEndpoint) {
         throw new Error(errMsg);
@@ -136,9 +120,7 @@ class Client {
     try {
       const oreInfoEndpoint = `${oreHttpEndpoint}/v1/chain/get_info`;
       const oreNetworkInfo = await fetch(oreInfoEndpoint);
-      const {
-        chain_id
-      } = await oreNetworkInfo.json();
+      const { chain_id } = await oreNetworkInfo.json();
       oreChainId = chain_id;
       if (!oreChainId) {
         throw new Error(errMsg);
@@ -289,10 +271,7 @@ class Client {
   // Makes request to url (including ore-access-token in header) and returns results
   async callRight(endpoint, httpMethod, requestParameters, oreAccessToken) {
     try {
-      const {
-        url,
-        options
-      } = await this.getOptions(endpoint, httpMethod, oreAccessToken, requestParameters);
+      const { url, options } = await this.getOptions(endpoint, httpMethod, oreAccessToken, requestParameters);
       const response = await fetch(url, options);
       if (response.headers.get('content-type').includes("application/json")) {
         return response.json();
@@ -324,10 +303,7 @@ class Client {
   */
   async fetch(rightName, requestParams) {
     log("Fetch request:", rightName, requestParams);
-    const {
-      instrument,
-      right
-    } = await this.getInstrumentAndRight(rightName);
+    const { instrument, right } = await this.getInstrumentAndRight(rightName);
     log("Fetch request: Active instrument found: ", instrument);
     log("Fetch request: Right to be used: ", right);
 
@@ -343,16 +319,8 @@ class Client {
     }
 
     // Call the verifier to get a new access token or get the cached access token
-    const {
-      accessToken,
-      cached
-    } = await this.getUrlAndAccessToken(instrument, right, rightCallPrice, requestParams);
-    const {
-      endpoint,
-      oreAccessToken,
-      method,
-      additionalParameters
-    } = accessToken;
+    const { accessToken, cached } = await this.getUrlAndAccessToken(instrument, right, rightCallPrice, requestParams);
+    const { endpoint, oreAccessToken, method, additionalParameters } = accessToken;
 
     log(`Fetch request: Url:${endpoint}`);
     log(`Fetch request: OreAccessToken ${oreAccessToken}`);
@@ -378,4 +346,4 @@ class Client {
 
 module.exports = {
   Client
-}
+};

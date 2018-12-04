@@ -279,7 +279,7 @@ class Client {
         return response.text();
       }
     } catch (error) {
-      throw new Error(`Instrument RightEndpoint Error: ${error.message}`);
+      throw new Error(`Instrument Right Endpoint Error: ${error.message}`);
     }
   }
 

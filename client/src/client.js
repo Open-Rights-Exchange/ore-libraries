@@ -204,16 +204,18 @@ class Client {
     };
   }
 
-  async getInstrumentAndRight(rightName) {
+  /* Gets the instrument for the input right from the ORE blockchain
+     Also sorts them depending on the following sortOrder inputs:
+     cheapestThenMostRecent - returns the cheapest instrument for the right and if there are more than one with the same price, 
+                              then returns the latest created/updated instrument (default value)
+     mostRecent             - returns the most recently minted or updated instrument for the right
+  */
+  async getInstrumentAndRight(rightName, sortOrder = "cheapestThenMostRecent") {
     // Call orejs.findInstruments(accountName, activeOnly:true, category:’apiMarket.apiVoucher’, rightName:’xxxx’) => [instruments]
     const instruments = await this.orejs.findInstruments(this.config.accountName, true, this.config.instrumentCategory, rightName)
 
-    // Choose one voucher - rules to select between vouchers: use cheapest priced and then with the one that has the earliest endDate
-    const instrument = instruments.sort((a, b) => {
-      const rightA = this.orejs.getRight(a, rightName);
-      const rightB = this.orejs.getRight(b, rightName);
-      return rightA.price_in_cpu - rightB.price_in_cpu || a.instrument.start_time - b.instrument.end_time
-    })[instruments.length - 1];
+    // Call orejs.sortInstruments(instruments, rights, sortOrder: "cheapestThenMostRecent"/"mostRecent") => [sorted instrument]
+    const instrument = this.orejs.sortInstruments(instruments, rightName, sortOrder)
 
     const right = this.orejs.getRight(instrument, rightName);
 

@@ -7,4 +7,5 @@ client/example/client_config.json
 client/example/node_modules
 client/example/package-lock.json
 client/example/dist
+client/example/.env
 .DS_Store

@@ -169,7 +169,14 @@ class Client {
     let url;
     let urlParameters;
     let bodyParameters;
-    url = new URL(endpoint);
+
+    // for node version less than 10, the URL object of the native url node module needs to be destructured 
+    if(process.version.length != 0 && semver.lt(process.version, '10.0.0')){
+        const { URL } = require('url')
+        url = new URL(endpoint);
+    } else {
+      url = new URL(endpoint);
+    }
 
     //If both url and body params are passed in, add params to query url and body
     if (requestParameters["http-url-params"] && requestParameters["http-body-params"]) {

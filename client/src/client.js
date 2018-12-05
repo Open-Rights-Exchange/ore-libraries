@@ -1,3 +1,4 @@
+const dotenv = require('dotenv').config()
 const fetch = require('node-fetch')
 const Base64 = require('js-base64').Base64;
 const ecc = require('eosjs-ecc')
@@ -21,11 +22,15 @@ if (process.version.length != 0) {
   }
 }
 
-const TRACING = false //enable when debugging to see detailed outputs
-
-// log data 
+// enables debugging to see detailed outputs by setting ENABLE_ORE_CLIENT_LIBRARY_TRACING to true as an environment variable
 function log(message, data) {
-  if (TRACING == true) {
+  let TRACING = "false"
+
+  if(process.env.ENABLE_ORE_CLIENT_LIBRARY_TRACING){
+    TRACING = process.env.ENABLE_ORE_CLIENT_LIBRARY_TRACING
+  }
+
+  if (TRACING == "true") {
     console.log(message, data)
   }
 }

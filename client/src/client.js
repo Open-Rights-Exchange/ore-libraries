@@ -1,3 +1,4 @@
+const dotenv = require('dotenv').config()
 const fetch = require('node-fetch')
 const Base64 = require('js-base64').Base64;
 const ecc = require('eosjs-ecc')
@@ -5,11 +6,8 @@ const semver = require('semver');
 const NodeCache = require("node-cache");
 const hash = require('object-hash');
 const { Orejs } = require('@open-rights-exchange/orejs')
-const URL = require('url').URL
 const uuidv1 = require('uuid/v1');
-const packageJson = require('../package');  //package.json
-
-const { log, encryptParams, getTokenAmount } = require("./helpers.js");
+const packageJson = require('../package'); //package.json
 
 const requiredNodeVersion = packageJson.engines.node;
 const accessTokenCache = new NodeCache();
@@ -24,6 +22,19 @@ if (process.version.length != 0) {
   }
 }
 
+// enables debugging to see detailed outputs by setting ENABLE_ORE_CLIENT_LIBRARY_TRACING to true as an environment variable
+function log(message, data) {
+  let TRACING = "false"
+
+  if(process.env.ENABLE_ORE_CLIENT_LIBRARY_TRACING){
+    TRACING = process.env.ENABLE_ORE_CLIENT_LIBRARY_TRACING
+  }
+
+  if (TRACING == "true") {
+    console.log(message, data)
+  }
+}
+
 class Client {
 
   constructor(config) {
@@ -35,7 +46,7 @@ class Client {
     return new Promise((resolve, reject) => {
       (async () => {
         try {
-          const {oreHttpEndpoint, oreChainId} = await this.getDetailsFromChain();
+          const { oreHttpEndpoint, oreChainId } = await this.getDetailsFromChain();
           //create instance of orejs
           this.orejs = new Orejs({
             httpEndpoint: oreHttpEndpoint,
@@ -61,15 +72,14 @@ class Client {
       throw new Error(`Problem with config: There is one or more missing required values.`);
     }
 
-    if(!instrumentCategory) {
+    if (!instrumentCategory) {
       configData.instrumentCategory = DEFAULT_INSTRUMENT_CATEGORY
     }
 
     //verifierAuthKey is base64 encoded
     try {
       configData.decodedVerifierAuthKey = Base64.decode(verifierAuthKey);
-    } 
-    catch (error) {
+    } catch (error) {
       throw new Error(`Problem with config: Couldn't decode the verifierAuthKey : ${error}`);
     }
 
@@ -80,7 +90,7 @@ class Client {
   /* confirm that verifierAuthKey is a valid private key
     ...and that it belongs to the account name in the config file  */
   async validateVerifierAuthKey() {
-    const {accountName, verifierAuthKey} = this.config;
+    const { accountName } = this.config;
     var verifierAuthPubKey;
 
     try {
@@ -125,7 +135,7 @@ class Client {
     }
 
     //return data
-    return {oreHttpEndpoint, oreChainId};
+    return { oreHttpEndpoint, oreChainId };
 
   }
 
@@ -148,142 +158,111 @@ class Client {
     }
   }
 
+  /* Creates the request object to call the rights Endpoint. 
+     This function creates the request object depending on the request type (get/post) and adds following to it:
+     Url parameters get added as query parameters with the url
+     body parameters as the body of the request object.
+     ore-access-token in the header
+  */
   async getOptions(endpoint, httpMethod, oreAccessToken, requestParameters) {
     let options;
     let url;
-    url = new URL(endpoint);
+    let urlParameters;
+    let bodyParameters;
 
-    //TODO: Refactor this code so we don't repeat
+    // for node version less than 10, the URL object of the native url node module needs to be destructured 
+    if(process.version.length != 0 && semver.lt(process.version, '10.0.0')){
+        const { URL } = require('url')
+        url = new URL(endpoint);
+    } else {
+      url = new URL(endpoint);
+    }
 
     //If both url and body params are passed in, add params to query url and body
     if (requestParameters["http-url-params"] && requestParameters["http-body-params"]) {
-      Object.keys(requestParameters["http-url-params"]).forEach(key => {
-        url.searchParams.append(key, requestParameters["http-url-params"][key])
-      });
-      options = {
-        method: httpMethod,
-        body: JSON.stringify(requestParameters["http-body-params"]),
-        headers: {
-          'Content-Type': 'application/json',
-          'Ore-Access-Token': oreAccessToken
-        }
-      };
+      urlParameters = requestParameters["http-url-params"]
+      bodyParameters = requestParameters["http-body-params"]
     } else {
-      //handle passed-in params as body parameters
       if (httpMethod.toLowerCase() === "post") {
-        options = {
-          method: httpMethod,
-          body: JSON.stringify(requestParameters),
-          headers: {
-            'Content-Type': 'application/json',
-            'Ore-Access-Token': oreAccessToken
-          }
-        }
-      } else {
-        //handle passed-in params as url query parameters
-        options = {
-          method: httpMethod,
-          headers: {
-            'Content-Type': 'application/json',
-            'Ore-Access-Token': oreAccessToken
-          }
-        }
-        Object.keys(requestParameters).forEach(key => url.searchParams.append(key, requestParameters[key]))
+        //handle request parameters as body parameters
+        bodyParameters = requestParameters
+      }
+
+      if (httpMethod.toLowerCase() === "get") {
+        //handle request parameters as url query parameters
+        urlParameters = requestParameters
       }
     }
 
-    return { url, options };
-  
-  }
+    Object.keys(urlParameters).forEach(key => {
+      url.searchParams.append(key, urlParameters[key])
+    });
 
-  async getApiVoucherAndRight(apiName) {
-    // Call orejs.findInstruments(accountName, activeOnly:true, category:’apiMarket.apiVoucher’, rightName:’xxxx’) => [apiVouchers]
-    const apiVouchers = await this.orejs.findInstruments(this.config.accountName, true, this.config.instrumentCategory, apiName)
-
-    // Choose one voucher - rules to select between vouchers: use cheapest priced and then with the one that has the earliest endDate
-    const apiVoucher = apiVouchers.sort((a, b) => {
-      const rightA = this.orejs.getRight(a, apiName);
-      const rightB = this.orejs.getRight(b, apiName);
-      return rightA.price_in_cpu - rightB.price_in_cpu || a.instrument.start_time - b.instrument.end_time
-    })[apiVouchers.length - 1];
-
-    const apiRight = this.orejs.getRight(apiVoucher, apiName);
-
-    return { apiVoucher, apiRight };
-  }
-
-  //Call the Verifier to approve the request
-  async getAccessTokenFromVerifier(apiVoucher, apiRight, encryptedParams) {
-    let errorMessage;
-    let result;
-    const signature = await this.orejs.signVoucher(apiVoucher.id);
-
-    const options = {
-      method: 'POST',
-      body: JSON.stringify({
-        requestParams: encryptedParams,
-        rightName: apiRight.right_name,
-        signature,
-        voucherId: apiVoucher.id
-      }),
+    options = {
+      method: httpMethod,
+      body: JSON.stringify(bodyParameters),
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Ore-Access-Token': oreAccessToken
       }
     };
 
-    // Call the Verifier to approve the request
-    try {
-      result = await fetch(`${this.config.verifier}/verify`, options);
-      if (!result.ok) {
-        let error = await result.json();
-        throw new Error(error.message);
-      }
-    } catch (error) {
-      errorMessage = "Internal Server Error";
-      throw new Error(`${errorMessage}:${error.message}`);
-    }
+    return { url, options };
+  }
 
-    const { endpoint, oreAccessToken, method, additionalParameters, accessTokenTimeout } = await result.json();
+  /* Gets the instrument for the input right from the ORE blockchain
+     Also sorts them depending on the following sortOrder inputs:
+     cheapestThenMostRecent - returns the cheapest instrument for the right and if there are more than one with the same price, 
+                              then returns the latest created/updated instrument (default value)
+     mostRecent             - returns the most recently minted or updated instrument for the right
+  */
+  async getInstrumentAndRight(rightName, sortOrder = "cheapestThenMostRecent") {
+    // Call orejs.findInstruments(accountName, activeOnly:true, category:’apiMarket.apiVoucher’, rightName:’xxxx’) => [instruments]
+    const instruments = await this.orejs.findInstruments(this.config.accountName, true, this.config.instrumentCategory, rightName)
 
-    if (!oreAccessToken || oreAccessToken === undefined) {
-      errorMessage = "Internal Server Error: Verifier is unable to return an ORE access token. Make sure a valid voucher is passed to the verifier."
-      throw new Error(`${errorMessage}`);
-    }
+    // Call orejs.sortInstruments(instruments, rights, sortOrder: "cheapestThenMostRecent"/"mostRecent") => [sorted instrument]
+    const instrument = this.orejs.sortInstruments(instruments, rightName, sortOrder)
 
-    if (!endpoint || endpoint === undefined) {
-      errorMessage = "Internal Server Error: Verifier is unable to find the Api endpoint. Make sure to pass in the correct right name you want to access."
-      throw new Error(`${errorMessage}`);
-    }
+    const right = this.orejs.getRight(instrument, rightName);
 
-    return { endpoint, oreAccessToken, method, additionalParameters, accessTokenTimeout };
+    return { instrument, right };
   }
 
   /* Call Verifier to get access token
      If a request is repeated with the same parameter values (and costs CPU),
      ...then the access token will be returned from a cache to prevent another call to the verifier
   */
-  async getUrlAndAccessToken(apiVoucher, apiRight, apiCallPrice, requestParams) {
+  async getUrlAndAccessToken(instrument, instrumentRight, rightCallPrice, requestParams) {
     let accessToken;
     let cached;
     const params = this.getParams(requestParams);
-    const encryptedParams = encryptParams(params);
 
-    const cacheKeyParams = Object.assign({}, encryptedParams);
-    cacheKeyParams["right"] = apiRight.right_name;
+    // hash the parameter values to be sent to the verifier
+    const hashedParams = this.orejs.hashParams(params);
+
+    const cacheKeyParams = Object.assign({}, hashedParams);
+    cacheKeyParams["right"] = instrumentRight.right_name;
 
     // key for the cached data
     const hashedCacheKey = hash(cacheKeyParams);
     const cachedAccessToken = accessTokenCache.get(hashedCacheKey);
 
     // check if the accesstoken can be cached
-    if (apiCallPrice !== "0.0000 CPU") {
-      accessToken = await this.getAccessTokenFromVerifier(apiVoucher, apiRight, encryptedParams);
-      cached = false;
+    if (rightCallPrice !== "0.0000 CPU") {
+      try {
+        accessToken = await this.orejs.getAccessTokenFromVerifier(this.config.verifier, instrument, instrumentRight, hashedParams);
+        cached = false;
+      } catch (error) {
+        throw new Error(`Internal Server Error: ${error.message}`);
+      }
     } else {
       // check if accesstoken for the client request exists in the cache or not 
       if (cachedAccessToken === undefined) {
-        accessToken = await this.getAccessTokenFromVerifier(apiVoucher, apiRight, encryptedParams);
-
+        try {
+          accessToken = await this.orejs.getAccessTokenFromVerifier(this.config.verifier, instrument, instrumentRight, hashedParams);
+        } catch (error) {
+          throw new Error(`Internal Server Error: ${error.message}`);
+        }
         // set the "time to live" for the cached token to be equal to the accessTokenTimeout of the ore-access-token
         accessTokenCache.set(hashedCacheKey, accessToken, accessToken.accessTokenTimeout);
         cached = false;
@@ -297,7 +276,7 @@ class Client {
   }
 
   // Makes request to url (including ore-access-token in header) and returns results
-  async callApiEndpoint(endpoint, httpMethod, requestParameters, oreAccessToken) {
+  async callRightEndpoint(endpoint, httpMethod, requestParameters, oreAccessToken) {
     try {
       const { url, options } = await this.getOptions(endpoint, httpMethod, oreAccessToken, requestParameters);
       const response = await fetch(url, options);
@@ -307,30 +286,20 @@ class Client {
         return response.text();
       }
     } catch (error) {
-      throw new Error(`Api Endpoint Error: ${error.message}`);
+      throw new Error(`Instrument Right Endpoint Error: ${error.message}`);
     }
   }
 
-  /* Posts the usage details for a voucher to the verifier
+  /* Posts the usage details for an instrument to the verifier
      This is called only when a (zero cost) request is handled by using an ore-access-token in the local cache
      Since the verifier is not called to return the access token, it must have usage updated directly via this approach
   */
-  async updateUsageLogAfterCacheUsage(apiVoucherId, rightName, oreAccessToken, apiCallPrice) {
-    const signature = await this.orejs.signVoucher(apiVoucherId);
-    const options = {
-      method: 'POST',
-      body: JSON.stringify({
-        rightName,
-        oreAccessToken,
-        signature,
-        voucherId: apiVoucherId,
-        amount: apiCallPrice
-      }),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    };
-    await fetch(`${this.config.verifier}/update-usage`, options);
+  async updateUsageLogAfterCacheUsage(instrumentId, rightName, oreAccessToken, rightCallPrice) {
+    try {
+      await this.orejs.updateUsageLog(this.config.verifier, instrumentId, rightName, oreAccessToken, rightCallPrice)
+    } catch (error) {
+      throw new Error(`Internal Server Error: ${error.message}`);
+    }
   }
 
   /*  
@@ -339,25 +308,25 @@ class Client {
     It then updates the request to include the ore-access-token returned by the Verifier
     ...as well as any additional parameters required (as specified by the Verifier)
   */
+  async fetch(rightName, requestParams) {
+    log("Fetch request:", rightName, requestParams);
+    const { instrument, right } = await this.getInstrumentAndRight(rightName);
+    log("Fetch request: Active instrument found: ", instrument);
+    log("Fetch request: Right to be used: ", right);
 
-  async fetch(apiName, requestParams) {
-    log("Fetch request:", apiName, requestParams);
-    const { apiVoucher, apiRight } = await this.getApiVoucherAndRight(apiName);
-    log("Fetch request: Active voucher found: ", apiVoucher);
-    log("Fetch request: Right to be used: ", apiRight);
+    // get CPU balance of the user account
+    const rightCallPrice = this.orejs.getAmount(right.price_in_cpu, "CPU");
 
-    const apiCallPrice = getTokenAmount(apiRight.price_in_cpu);
-
-    if (apiCallPrice != "0.0000 CPU") {
-      // Call cpuContract.approve(accountName, cpuAmount) to designate amount to allow payment in cpu for the api call (from priceInCPU in the apiVoucher’s right for the specific endpoint desired)
+    if (rightCallPrice != "0.0000 CPU") {
+      // Call cpuContract.approve(accountName, cpuAmount) to designate amount to allow payment in cpu for the rights endpoint call(from priceInCPU in the instrument’s right for the specific endpoint desired)
       const memo = `approve CPU transfer for $(this.config.verifierAccountName + uuidv1()}`;
-      log(`Fetch request: Requesting verifier to approve ${apiCallPrice} CPU transfer for: ${this.config.verifierAccountName + uuidv1()}`);
-      await this.orejs.approveCpu(this.config.accountName, this.config.verifierAccountName, apiCallPrice, memo, VERIFIER_APPROVE_PERMISSION);
-      log("Fetch request: CPU approved by the verifier");
+      log(`Fetch request: Approve ${rightCallPrice} transfer for: ${this.config.verifierAccountName + uuidv1()}`);
+      await this.orejs.approveCpu(this.config.accountName, this.config.verifierAccountName, rightCallPrice, memo, VERIFIER_APPROVE_PERMISSION);
+      log("Fetch request: CPU approved for the verifier");
     }
 
     // Call the verifier to get a new access token or get the cached access token
-    const { accessToken, cached } = await this.getUrlAndAccessToken(apiVoucher, apiRight, apiCallPrice, requestParams);
+    const { accessToken, cached } = await this.getUrlAndAccessToken(instrument, right, rightCallPrice, requestParams);
     const { endpoint, oreAccessToken, method, additionalParameters } = accessToken;
 
     log(`Fetch request: Url:${endpoint}`);
@@ -370,18 +339,18 @@ class Client {
       });
     }
 
-    // Call the verifier to update usage log if the api call cost is 0 and client is using cached token
-    if (cached === true && apiCallPrice === "0.0000 CPU") {
+    // Call the verifier to update usage log if the call cost for the instrument's right is 0 and client is using cached token
+    if (cached === true && rightCallPrice === "0.0000 CPU") {
       log(`Fetch request: A cached access token was used - Verifier not called`);
-      this.updateUsageLogAfterCacheUsage(apiVoucher.id, apiRight.right_name, JSON.stringify(oreAccessToken), apiCallPrice);
+      this.updateUsageLogAfterCacheUsage(instrument.id, right.right_name, JSON.stringify(oreAccessToken), rightCallPrice);
     }
 
-    // Call the api
-    const response = await this.callApiEndpoint(endpoint, method, requestParams, oreAccessToken);
+    // Call the right
+    const response = await this.callRightEndpoint(endpoint, method, requestParams, oreAccessToken);
     return response;
   }
 }
 
 module.exports = {
   Client
-}
+};

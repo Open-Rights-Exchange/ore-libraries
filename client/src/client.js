@@ -15,6 +15,8 @@ const accessTokenCache = new NodeCache();
 const DEFAULT_INSTRUMENT_CATEGORY = "apimarket.apiVoucher";
 const VERIFIER_APPROVE_PERMISSION = "authverifier";
 
+var isConnecting = false;
+
 // if running under a Node application, check node version meets required minimum
 if (process.version.length != 0) {
   if (!semver.satisfies(process.version, requiredNodeVersion)) {
@@ -39,11 +41,18 @@ class Client {
 
   constructor(config) {
     this.config = this.validateConfig(config);
+    this.orejsConnection = null;
   }
 
   //connect to the ORE blockchain
   connect() {
-    return new Promise((resolve, reject) => {
+    // return true if the connection to orejs is already established
+    if(this.orejsConnection == "Connected"){
+      return true;
+    }
+    // establish a new connection to orejs
+    else if (this.orejsConnection == null){
+      return this.orejsConnection = new Promise((resolve, reject) => {
       (async () => {
         try {
           const { oreHttpEndpoint, oreChainId } = await this.getDetailsFromChain();
@@ -56,13 +65,20 @@ class Client {
             sign: true
           });
           await this.validateVerifierAuthKey();
+          this.orejsConnection = "Connected";
           resolve(this);
         } catch (error) {
+          this.orejsConnection = null;
           reject(error);
         }
       })();
     });
+  } 
+  // return null if no connection to orejs
+  else {
+    return this.orejsConnection;
   }
+}
 
   // Validate and extend config data 
   validateConfig(configData) {
@@ -218,7 +234,12 @@ class Client {
   */
   async getInstrumentAndRight(rightName, sortOrder = "cheapestThenMostRecent") {
     // Call orejs.findInstruments(accountName, activeOnly:true, category:’apiMarket.apiVoucher’, rightName:’xxxx’) => [instruments]
-    const instruments = await this.orejs.findInstruments(this.config.accountName, true, this.config.instrumentCategory, rightName)
+    let instruments;
+    try{
+      instruments = await this.orejs.findInstruments(this.config.accountName, true, this.config.instrumentCategory, rightName)
+    } catch(error){
+      throw new Error(`Unable to find instrument for ${this.config.accountName} for ${rightName}`)
+    }
 
     // Call orejs.sortInstruments(instruments, rights, sortOrder: "cheapestThenMostRecent"/"mostRecent") => [sorted instrument]
     const instrument = this.orejs.sortInstruments(instruments, rightName, sortOrder)
@@ -309,6 +330,8 @@ class Client {
     ...as well as any additional parameters required (as specified by the Verifier)
   */
   async fetch(rightName, requestParams) {
+    // get existing connection to orejs or establish a new connection
+    await this.connect();
     log("Fetch request:", rightName, requestParams);
     const { instrument, right } = await this.getInstrumentAndRight(rightName);
     log("Fetch request: Active instrument found: ", instrument);

@@ -21,5 +21,5 @@ The client library makes it easy for you to make calls to ORE-protected endpoint
 
 You also need a config file that specifies your ORE account name and a few other parameters. Your ORE account will be charged a micro-payment to access the protected endpoint (unless the API is free!)
 
-You can see how all this works by visiting the AIKON [API marketplace](https:api.market). All the APIs available there are protected by the ORE Protocol and you access them using this client library.
+You can see how all this works by visiting the AIKON [API marketplace](https://api.market). All the APIs available there are protected by the ORE Protocol and you access them using this client library.
 

@@ -1,0 +1,28 @@
+{
+    "env": {
+        "browser": true,
+        "node": true,
+        "jest": true
+    },
+    "extends": [
+        "standard",
+        "eslint:recommended",
+        "plugin:react/recommended"
+    ],
+    "globals": {
+        "Web3": false
+    },
+    "parser": "babel-eslint",
+    "plugins": ["react"],
+    "rules": {
+        "array-bracket-newline": ["consistent"],
+        "react/prop-types": 0,
+        "arrow-parens": 0,
+        "generator-star-spacing": 0,
+        "allowTemplateLiterals": 0,
+        "no-console": "off",
+        "semi": [2, "always"],
+        "no-new": [0],
+        "no-unused-vars": "off"
+    }
+}
